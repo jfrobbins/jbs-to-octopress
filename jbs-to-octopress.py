@@ -35,7 +35,50 @@ def monthToNum(month):
 	else:
 		return 0
 
-def convertJBSFileToOctopress(lFile)
+def ensure_dir(f):
+	#make sure a directory exists, create it otherwise
+	d = os.path.dirname(f)
+	if not os.path.exists(d):
+		os.makedirs(d)
+		
+def octo_header(title, date, categories, comments=None):
+	header = "---\n"
+	header = header + "layout: post\n"
+	header = header + "title: " + title + "\n"
+	header = header + "date: " + date + "\n"
+	if comments == true:
+		header = header + "comments: " + "true" + "\n"
+	else:
+		header = header + "comments: " + "false" + "\n"
+		
+	header = header + "categories: ["
+	i = 0
+	for c in categories:
+		if i > 0:
+			header = header + ", "
+		header = header + c
+		i = i + 1
+	header = header + "]\n"
+	header = header + "---\n"
+	return header
+	
+def jbs_GetTags(lFile, 	startingLine):
+	for line in lFile[startingLine:]:
+		if line.upper().find("TAGS:") or line.upper().find("CATEGORIES:"):
+			#Read as a list
+			arLine = line.split("#") #split on the hash
+			for c in arLine[1:]:
+				cats.append[c.rstrip()]
+		elif line.find("#"):
+			#line just has a random hashtag-tag in it
+			arLine = line.split("#")
+			for section in arLine[1:]:
+				section = section.split(" ") #now split on space
+				cats.append[section[0]]
+	
+	return cats
+		
+def convertJBSFileToOctopress(lFile, outDir):
 	#print "the first line is: " + lFile[0]
 	date = normalizeDate(lFile[0]) #first line should be the date
 	print date
@@ -43,7 +86,31 @@ def convertJBSFileToOctopress(lFile)
 		print "error in file format"
 		sys.exit(2)
 	
+	title = None
+	nLine = 1
+	for line in lFile[1:]:	#start on the second line, first line captured the date
+		if lFile == "":
+			pass		#skip blank lines, until we get to the title, anyway.
+		elif line[0] =="\\":
+			#titles are denoted with a '\'
+			title = line[1:] 
+			break
+		nLine = nLine + 1
+			
+	if title == None:
+		title = "no Title" #assign a default title
+		
+	#keep parsing and look for "Tags:" or "Categories:" etc
+	categories = jbs_GetTags(lFile, nLine)
+		
+	ensure_dir(outDir)
+	outFileName = outDir + "/" + date + "-" + title.replace(' ', '-') #replace spaces with dashes
+	outFileName = outFileName.replace("'", '') #remove single quotes. should probably remove all illegal chars
 	
+	of = open(outFielName, 'w')
+	of.write( octo_header(title, date, categories, useComments) )
+	of.write( lFile[nLine:] ) #write the rest of the file
+	of.close()
 
 def normalizeDate(text):
 	outDate = text #initial assignment
@@ -80,6 +147,7 @@ def normalizeDate(text):
 def main(argv):
 	args = sys.argv[1:] #skip the filename
 	workingDir = args[0]
+	outDir = workingDir + '/' + "converted_files"
 	
 	dirlisting = os.listdir(workingDir)
 	dirlisting.sort()
@@ -88,7 +156,7 @@ def main(argv):
 		try :
 			f = open(workingDir + infile, 'r')
 			lFile = f.readlines() #read the lines into a list
-			convertJBSFileToOctopress(lFile)
+			convertJBSFileToOctopress(lFile, outDir)
 			
 		except :
 			#file could not be opened for reading
