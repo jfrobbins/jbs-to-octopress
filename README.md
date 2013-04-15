@@ -5,7 +5,7 @@ Python script to convert JBS blog posts into Octopress-friendly format
 
 
 example syntax:
-python2 jbs-to-octopress.py /path/to/jbs/articles
+python2 jbs-to-octopress.py /path/to/jbs/articles/
 
 This is a simple file-conversion script. Some sample files are in ./sample_files/ 
 The jbs and octopress files are very similar, so the conversion is straight forward.
