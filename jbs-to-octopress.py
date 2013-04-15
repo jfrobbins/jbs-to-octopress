@@ -58,6 +58,9 @@ def monthToNum(month):
 	else:
 		return 0
 
+def removeNonAscii(s): 
+	return "".join(i for i in s if ord(i)<128)
+
 def ensure_dir(f, isFile='true'):
 	#make sure a directory exists, create it otherwise	
 	if isFile == 'true':
@@ -70,6 +73,13 @@ def ensure_dir(f, isFile='true'):
 		os.makedirs(d)
 	else:
 		print "directory exists ( " + d + " )"	
+		
+def removeBadChars(s):
+	charsToStrip = ['\n', '\t', " ", "'", '?', '!', '@', '#', '$', '%', '^', '&', '*', '+', '=', '\\', '/', '{', '}', '|', ':', ';', ',', '<', '>']		
+	for char in charsToStrip:
+		s = s.replace(char, '') #remove all illegal chars
+		
+	return s
 		
 def octo_header(title, date, categories, comments='false'):
 	date = date.replace(' ', '-') #clean up the date
@@ -104,17 +114,19 @@ def jbs_GetTags(lFile, 	startingLine):
 			#print "line has tags: " + line
 			arLine = line.split("#") #split on the hash
 			for c in arLine[1:]:
-				print "tag: " + c
-				cats.append(c.rstrip() )
+				#print "tag: " + c
+				tag = removeBadChars(c)
+				if tag != "":
+					cats.append(c.rstrip() )
 		elif line.find("#") > -1:
 			#line just has a random hashtag-tag in it
 			#print "line has tags: " + line
 			arLine = line.split("#")
 			for section in arLine[1:]:
 				section = section.split(" ") #now split on space
-				if section[0].rstrip() != "":
-					tag = section[0].rstrip()
-					print "tag: " + tag
+				tag = removeBadChars(section[0].rstrip())
+				if tag != "":
+					#print "tag: " + tag
 					cats.append(tag)
 	print "done with for-loop"
 	
@@ -122,6 +134,7 @@ def jbs_GetTags(lFile, 	startingLine):
 	return cats
 	
 def normalizeDate(text):
+	print text;
 	outDate = text #initial assignment
 	jbsDate = text.split(" ") #split it up by string.
 	if len(jbsDate) == 2:
@@ -138,7 +151,7 @@ def normalizeDate(text):
 	elif len(jbsDate) == 3:
 		#ie. Dec 24 2011
 		#print "Month dd yyy"
-		outDate = jbsDate[2] + "-" + monthToNum(jbsDate[0]) + "-" + jbsDate[1]
+		outDate = str(jbsDate[2]) + "-" + str(monthToNum(jbsDate[0])) + "-" + str(jbsDate[1])
 		
 	elif len(jbsDate) == 1:
 		#ie. 2011-01-02
@@ -152,9 +165,44 @@ def normalizeDate(text):
 		return None
 	
 	outDate = outDate.rstrip()
+	outDate = outDate.replace("\n", "")
 	return outDate
 	
-def convertJBSFileToOctopress(lFile, outDir):
+def createOutFilename(outDir, date, title):
+	print "outdir: " + outDir
+	
+	ensure_dir(outDir, 'false')
+	if outDir[-1] != ["/"]:
+		outDir = outDir + "/"
+	
+	outFileName = date.split(" ")[0] + "-" + title + ".md" 
+	outFIleName = removeBadChars(outFileName)
+	
+	print "outfile: " + outFileName
+	outFileName = outDir + outFileName #prepend directory
+	
+	return outFileName
+	
+def cleanupOutput(text):
+	
+	text = removeNonAscii(text)
+	
+	#text = text.rstrip()
+	text = text.lstrip()
+	
+	#HTML stuffs:
+	text = text.replace("<br>", "\n")
+	text = text.replace("</br>", "")
+	text = text.replace("<P>", "\n")
+	text = text.replace("</P>", "")
+	
+	#check for blank:
+	if text == "":
+		text = "\n"
+		
+	return text
+	
+def convertJBSFileToOctopress(inFname,lFile, outDir):
 	useComments = 'false' #disable comments by default for converted posts.
 	
 	#print "the first line is: " + lFile[0]
@@ -183,23 +231,19 @@ def convertJBSFileToOctopress(lFile, outDir):
 	
 	#keep parsing and look for "Tags:" or "Categories:" etc
 	categories = jbs_GetTags(lFile, nLine)
-	print "categories: " 
-	print categories
+	#print "categories: " 
+	#print categories
 		
-	print "outdir: " + outDir
-	ensure_dir(outDir, 'false')
-	if outDir[-1] != ["/"]:
-		outDir = outDir + "/"
-	
-	outFileName = outDir + date.split(" ")[0] + "-" + title + ".md" 
-	outFileName = outFileName.replace("'", '') #remove single quotes. should probably remove all illegal chars
+	outFileName = createOutFilename(outDir, date, title)
 	
 	print "starting to write output file: " + outFileName
 	try : 
 		of = open(outFileName, 'w')
 		of.write( octo_header(title, date, categories, useComments) )
 		for line in lFile[nLine+1:]:
-			of.write( line.strip() ) #write the rest of the file
+			line = cleanupOutput(line)
+			of.write( line ) #write the rest of the file
+		of.write( "original filename: " + str(inFname) )
 		of.close()
 	finally :
 		print "could not write file for output"
@@ -219,7 +263,7 @@ def main(argv):
 		try :
 			f = open(workingDir + infile, 'r')
 			lFile = f.readlines() #read the lines into a list
-			convertJBSFileToOctopress(lFile, outDir)
+			convertJBSFileToOctopress(infile, lFile, outDir)
 			print "file converted"
 		finally :
 			print "file could not be opened for reading (may be directory)"
