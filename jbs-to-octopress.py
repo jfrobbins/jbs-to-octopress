@@ -58,18 +58,27 @@ def monthToNum(month):
 	else:
 		return 0
 
-def ensure_dir(f):
-	#make sure a directory exists, create it otherwise
-	d = os.path.dirname(f)
-	if not os.path.exists(d):
-		os.makedirs(d)
+def ensure_dir(f, isFile='true'):
+	#make sure a directory exists, create it otherwise	
+	if isFile == 'true':
+		d = os.path.dirname(f)
+	else:
+		d = f
 		
-def octo_header(title, date, categories, comments=None):
+	if not os.path.exists(d):
+		print "creating directory: " + d
+		os.makedirs(d)
+	else:
+		print "directory exists ( " + d + " )"	
+		
+def octo_header(title, date, categories, comments='false'):
+	date = date.replace(' ', '-') #clean up the date
+	
 	header = "---\n"
 	header = header + "layout: post\n"
 	header = header + "title: " + title + "\n"
 	header = header + "date: " + date + "\n"
-	if comments == true:
+	if comments == 'true':
 		header = header + "comments: " + "true" + "\n"
 	else:
 		header = header + "comments: " + "false" + "\n"
@@ -86,22 +95,68 @@ def octo_header(title, date, categories, comments=None):
 	return header
 	
 def jbs_GetTags(lFile, 	startingLine):
-	for line in lFile[startingLine:]:
-		if line.upper().find("TAGS:") or line.upper().find("CATEGORIES:"):
+	cats = ["jbs"]
+	print "getting tags"
+	for line in lFile: #[startingLine:]:
+		#print "line: " + line
+		if line.upper().find("TAGS:") > -1 or line.upper().find("CATEGORIES:") > -1:
 			#Read as a list
+			#print "line has tags: " + line
 			arLine = line.split("#") #split on the hash
 			for c in arLine[1:]:
-				cats.append[c.rstrip()]
-		elif line.find("#"):
+				print "tag: " + c
+				cats.append(c.rstrip() )
+		elif line.find("#") > -1:
 			#line just has a random hashtag-tag in it
+			#print "line has tags: " + line
 			arLine = line.split("#")
 			for section in arLine[1:]:
 				section = section.split(" ") #now split on space
-				cats.append[section[0]]
+				if section[0].rstrip() != "":
+					tag = section[0].rstrip()
+					print "tag: " + tag
+					cats.append(tag)
+	print "done with for-loop"
 	
+	print "exiting jbs_GetTags()"
 	return cats
+	
+def normalizeDate(text):
+	outDate = text #initial assignment
+	jbsDate = text.split(" ") #split it up by string.
+	if len(jbsDate) == 2:
+		#ie. 2010-02-16 07:20:36	
+		#print "yyyy-mm-dd hh:mm:ss"
+		jbsTime = jbsDate[1] #time is the second half
+		jbsDate = jbsDate[0].split("-") #split the first half by the hyphen
+		if len(jbsDate) <= 1:
+			return outDate
+		#else:
+			#should be a correctly formatted string for octopress
+			outDate = text #done at top
 		
+	elif len(jbsDate) == 3:
+		#ie. Dec 24 2011
+		#print "Month dd yyy"
+		outDate = jbsDate[2] + "-" + monthToNum(jbsDate[0]) + "-" + jbsDate[1]
+		
+	elif len(jbsDate) == 1:
+		#ie. 2011-01-02
+		#this is ok for octopress too
+		#print "yyyy-mm-dd"
+		outDate = text #done at top.
+		
+	else:
+		#ie... ?
+		print "unknown date format"
+		return None
+	
+	outDate = outDate.rstrip()
+	return outDate
+	
 def convertJBSFileToOctopress(lFile, outDir):
+	useComments = 'false' #disable comments by default for converted posts.
+	
 	#print "the first line is: " + lFile[0]
 	date = normalizeDate(lFile[0]) #first line should be the date
 	print date
@@ -116,73 +171,58 @@ def convertJBSFileToOctopress(lFile, outDir):
 			pass		#skip blank lines, until we get to the title, anyway.
 		elif line[0] =="\\":
 			#titles are denoted with a '\'
-			title = line[1:] 
+			title = line.strip()
+			title = title[1:]
 			break
 		nLine = nLine + 1
-			
 	if title == None:
 		title = "no Title" #assign a default title
-		
+	title = title.rstrip()
+	title = title.replace(' ', '-') #replace spaces with dashes
+	print "title: " + title
+	
 	#keep parsing and look for "Tags:" or "Categories:" etc
 	categories = jbs_GetTags(lFile, nLine)
+	print "categories: " 
+	print categories
 		
-	ensure_dir(outDir)
-	outFileName = outDir + "/" + date + "-" + title.replace(' ', '-') #replace spaces with dashes
+	print "outdir: " + outDir
+	ensure_dir(outDir, 'false')
+	if outDir[-1] != ["/"]:
+		outDir = outDir + "/"
+	
+	outFileName = outDir + date.split(" ")[0] + "-" + title + ".md" 
 	outFileName = outFileName.replace("'", '') #remove single quotes. should probably remove all illegal chars
 	
-	of = open(outFielName, 'w')
-	of.write( octo_header(title, date, categories, useComments) )
-	of.write( lFile[nLine:] ) #write the rest of the file
-	of.close()
+	print "starting to write output file: " + outFileName
+	try : 
+		of = open(outFileName, 'w')
+		of.write( octo_header(title, date, categories, useComments) )
+		for line in lFile[nLine+1:]:
+			of.write( line.strip() ) #write the rest of the file
+		of.close()
+	finally :
+		print "could not write file for output"
 
-def normalizeDate(text):
-	outDate = text #initial assignment
-	jbsDate = text.split(" ") #split it up by string.
-	if len(jbsDate) == 2:
-		#ie. 2010-02-16 07:20:36	
-		print "yyyy-mm-dd hh:mm:ss"
-		jbsTime = jbsDate[1] #time is the second half
-		jbsDate = jbsDate[0].split("-") #split the first half by the hyphen
-		if len(jbsDate) <= 1:
-			return outDate
-		#else:
-			#should be a correctly formatted string for octopress
-			#outDate = text #done at top
-		
-	elif len(jbsDate) == 3:
-		#ie. Dec 24 2011
-		print "Month dd yyy"
-		outDate = jbsDate[2] + "-" + monthToNum(jbsDate[0]) + "-" + jbsDate[1]
-		
-	elif len(jbsDate) == 1:
-		#ie. 2011-01-02
-		#this is ok for octopress too
-		print "yyyy-mm-dd"
-		#outDate = text #done at top.
-		
-	else:
-		#ie... ?
-		print "unknown date format"
-		return None
-	
-	return outDate
 
 def main(argv):
 	args = sys.argv[1:] #skip the filename
 	workingDir = args[0]
-	outDir = workingDir + '/' + "converted_files"
+	if workingDir[-1] != '/':
+		workingDir + "/"
+	outDir = workingDir + "converted_files"
 	
 	dirlisting = os.listdir(workingDir)
 	dirlisting.sort()
 	for infile in dirlisting:
-		#print "current file is: " + infile
+		print "current file is: " + infile
 		try :
 			f = open(workingDir + infile, 'r')
 			lFile = f.readlines() #read the lines into a list
 			convertJBSFileToOctopress(lFile, outDir)
-			
-		except :
-			#file could not be opened for reading
+			print "file converted"
+		finally :
+			print "file could not be opened for reading (may be directory)"
 			pass
 			
 
