@@ -74,8 +74,10 @@ def ensure_dir(f, isFile='true'):
 	else:
 		print "directory exists ( " + d + " )"	
 		
-def removeBadChars(s):
-	charsToStrip = ['\n', '\t', " ", "'", '?', '!', '@', '#', '$', '%', '^', '&', '*', '+', '=', '\\', '/', '{', '}', '|', ':', ';', ',', '<', '>']		
+def removeBadChars(s, allowSpace = 0):
+	charsToStrip = ['\n', '\t','"', "'", '?', '!', '@', '#', '$', '%', '^', '&', '*', '+', '=', '\\', '/', '{', '}', '|', ':', ';', ',', '<', '>', '(', ')']		
+	if allowSpace == 0:
+		charsToStrip.append(" ")
 	for char in charsToStrip:
 		s = s.replace(char, '') #remove all illegal chars
 		
@@ -116,7 +118,8 @@ def jbs_GetTags(lFile, 	startingLine):
 			for c in arLine[1:]:
 				#print "tag: " + c
 				tag = removeBadChars(c)
-				if tag != "":
+				tag = tag.replace('.', '')
+				if tag != "" and not tag.isdigit(): #don't take null strings, or numbers
 					cats.append(c.rstrip() )
 		elif line.find("#") > -1:
 			#line just has a random hashtag-tag in it
@@ -125,7 +128,8 @@ def jbs_GetTags(lFile, 	startingLine):
 			for section in arLine[1:]:
 				section = section.split(" ") #now split on space
 				tag = removeBadChars(section[0].rstrip())
-				if tag != "":
+				tag = tag.replace('.', '')
+				if tag != "" and not tag.isdigit():	#don't take null strings, or numbers
 					#print "tag: " + tag
 					cats.append(tag)
 	print "done with for-loop"
@@ -151,7 +155,10 @@ def normalizeDate(text):
 	elif len(jbsDate) == 3:
 		#ie. Dec 24 2011
 		#print "Month dd yyy"
-		outDate = str(jbsDate[2]) + "-" + str(monthToNum(jbsDate[0])) + "-" + str(jbsDate[1])
+		day = str(monthToNum(jbsDate[0]))
+		if len(day) < 2:
+			day = "0" + day
+		outDate = str(jbsDate[2]) + "-" + day + "-" + str(jbsDate[1])
 		
 	elif len(jbsDate) == 1:
 		#ie. 2011-01-02
@@ -176,7 +183,7 @@ def createOutFilename(outDir, date, title):
 		outDir = outDir + "/"
 	
 	outFileName = date.split(" ")[0] + "-" + title + ".md" 
-	outFIleName = removeBadChars(outFileName)
+	outFileName = removeBadChars(outFileName)
 	
 	print "outfile: " + outFileName
 	outFileName = outDir + outFileName #prepend directory
@@ -220,7 +227,7 @@ def convertJBSFileToOctopress(inFname,lFile, outDir):
 		elif line[0] =="\\":
 			#titles are denoted with a '\'
 			title = line.strip()
-			title = title[1:]
+			title = removeBadChars(title[1:], 1)
 			break
 		nLine = nLine + 1
 	if title == None:
@@ -243,7 +250,7 @@ def convertJBSFileToOctopress(inFname,lFile, outDir):
 		for line in lFile[nLine+1:]:
 			line = cleanupOutput(line)
 			of.write( line ) #write the rest of the file
-		of.write( "original filename: " + str(inFname) )
+		of.write( "\n original filename: " + str(inFname) )
 		of.close()
 	finally :
 		print "could not write file for output"
