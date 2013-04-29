@@ -259,9 +259,7 @@ def convertJBSFileToOctopress(inFname,lFile, outDir):
 def main(argv):
 	args = sys.argv[1:] #skip the filename
 	workingDir = args[0]
-	if workingDir[-1] != '/':
-		workingDir + "/"
-	outDir = workingDir + "converted_files"
+	outDir = os.path.join(workingDir,"converted_files")
 	
 	dirlisting = os.listdir(workingDir)
 	dirlisting.sort()
